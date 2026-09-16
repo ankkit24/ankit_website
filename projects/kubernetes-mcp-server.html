@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kubernetes Operations MCP Server — Ankit Nanavaty</title>
+    <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+
+<header class="site-header">
+    <div class="container">
+        <a href="../index.html" class="brand">ANKIT NANAVATY</a>
+        <nav class="site-nav">
+            <a href="https://github.com/ankkit24/CloudArchitecturePortfolio" target="_blank" rel="noopener">GitHub</a>
+        </nav>
+    </div>
+</header>
+
+<div class="container">
+    <a class="back-link" href="../index.html">&larr; All projects</a>
+
+    <div class="project-hero">
+        <h1>Kubernetes Operations MCP Server</h1>
+        <p class="subtitle">
+            Giving LLM agents safe, audited control over production Kubernetes clusters —
+            without handing them a raw cluster-admin kubeconfig.
+        </p>
+    </div>
+</div>
+
+<div class="container project-body">
+
+    <section>
+        <h2>Architecture</h2>
+
+        <div class="diagram-block">
+            <img src="../assets/projects/kubernetes-mcp-server/Simplified_architecture.png"
+                 alt="Plain-English walkthrough of the Kubernetes MCP Server: LLM Agent, MCP Server, Control-Plane Stores, Target K8s Clusters">
+            <p class="caption">Plain-English walkthrough — how a request flows end to end</p>
+        </div>
+
+        <div class="diagram-block">
+            <img src="../assets/projects/kubernetes-mcp-server/architecture-diagram.png"
+                 alt="Full technical architecture diagram of the Kubernetes MCP Server">
+            <p class="caption">Full technical architecture</p>
+        </div>
+    </section>
+
+    <section>
+        <h2>Problem</h2>
+        <p>
+            Give LLM agents (Claude Desktop/Code, internal chatbots) the ability to operate
+            production Kubernetes clusters through natural language — without handing them a
+            raw cluster-admin kubeconfig. Need a safety and audit boundary: per-user RBAC,
+            approval gates on destructive actions, and a full audit trail.
+        </p>
+    </section>
+
+    <section>
+        <h2>Requirements</h2>
+
+        <h3>Functional</h3>
+        <ul>
+            <li>Read tools for all core/custom resources (get, list, describe, logs, events, top).</li>
+            <li>Write tools for workloads, config, and networking (create, update, scale, delete, rollout).</li>
+            <li>Helm lifecycle (install/upgrade/rollback), manifest apply with dry-run/diff.</li>
+            <li>Troubleshooting: log tail, exec, port-forward, crash-loop diagnosis.</li>
+            <li>Multi-cluster context switching; long-running ops as pollable async jobs.</li>
+            <li>Secret values redacted in every response by default.</li>
+        </ul>
+
+        <h3>Non-functional</h3>
+        <ul>
+            <li>Least privilege — every call runs as the caller's own identity (impersonation), never a shared admin token.</li>
+            <li>Every tool call is audited before it's considered complete.</li>
+            <li>Destructive actions default to dry-run + require explicit human approval.</li>
+            <li>Reads served from cache, not the live API server, for low latency.</li>
+            <li>Per-cluster isolation — one cluster's failure doesn't affect others.</li>
+        </ul>
+    </section>
+
+    <section>
+        <h2>Scale assumptions</h2>
+        <table class="info-table">
+            <tr><th>Users</th><td>50–500 concurrent engineers/agents, 10–30 clusters</td></tr>
+            <tr><th>RPS</th><td>50–200 steady, bursts to ~1,000 during incidents</td></tr>
+            <tr><th>Latency</th><td>p50 &lt; 300ms (cached reads), p99 &lt; 2s (writes)</td></tr>
+            <tr><th>Data size</th><td>~10k pods, ~100k watched objects across clusters</td></tr>
+            <tr><th>Availability</th><td>99.9% for the MCP control plane</td></tr>
+        </table>
+    </section>
+
+    <section>
+        <h2>Request flow</h2>
+        <ol>
+            <li>Agent calls a tool (e.g. <code>scale_deployment</code>) via the MCP client.</li>
+            <li>Gateway authenticates the caller and resolves it to a scoped K8s identity via impersonation.</li>
+            <li>Tool Router validates the schema and checks policy (namespace blocklist, dry-run/approval rules).</li>
+            <li>Reads hit the watch-cache; fast writes go to the API server; long-running ops go to the job queue and return a <code>job_id</code> immediately.</li>
+            <li>Destructive + unconfirmed actions return "pending approval" instead of executing.</li>
+            <li>Response is redacted and returned; the call is written to the audit log regardless of outcome.</li>
+        </ol>
+    </section>
+
+    <section>
+        <h2>Key design decisions</h2>
+
+        <div class="decision-item">
+            <strong>Load balancing —</strong> Stateless replicas behind an internal LB; streaming tools
+            (log follow, exec) need session affinity. The local <code>stdio</code> mode (single user)
+            skips this entirely.
+        </div>
+        <div class="decision-item">
+            <strong>Caching —</strong> Per-cluster watch-cache (Kubernetes informers) serves all
+            <code>list</code>/<code>get</code> tools — the biggest lever for latency and for keeping
+            load off the real API server.
+        </div>
+        <div class="decision-item">
+            <strong>Database —</strong> No primary datastore for cluster state — the K8s API server
+            is the source of truth. A small store only holds audit log index, job/approval status,
+            and permission overrides.
+        </div>
+        <div class="decision-item">
+            <strong>Messaging —</strong> A job queue (SQS/NATS) decouples slow or fan-out actions
+            (drain, Helm upgrade) from the request; the caller polls <code>get_job_status</code>
+            instead of blocking.
+        </div>
+    </section>
+
+    <section>
+        <h2>Failure scenarios</h2>
+
+        <div class="failure-item">
+            <strong>Target cluster's API server down</strong> → circuit breaker trips for that cluster;
+            cached reads still served (marked stale), writes fail fast. Other clusters unaffected.
+        </div>
+        <div class="failure-item">
+            <strong>Watch-cache connection drops</strong> → reconnects with backoff; falls back to
+            direct (uncached) reads until resynced.
+        </div>
+        <div class="failure-item">
+            <strong>Audit log store down</strong> → mutating tools are blocked (fail-closed); reads keep working.
+        </div>
+        <div class="failure-item">
+            <strong>MCP server replica crashes</strong> → stateless, client retries another replica;
+            in-flight async jobs are unaffected (they live in the worker tier, not the replica).
+        </div>
+        <div class="failure-item">
+            <strong>Hallucinated/mistaken destructive call</strong> → RBAC caps blast radius, namespace
+            blocklist, dry-run default, and required human approval all have to be bypassed for real
+            damage to occur.
+        </div>
+    </section>
+
+    <section>
+        <h2>Scaling</h2>
+        <table class="info-table">
+            <tr><th>1K RPS</th><td>3–5 replicas behind an LB; watch-cache absorbs nearly all read load.</td></tr>
+            <tr><th>10K RPS</th><td>Scale to 10–20 replicas; shard watch-caches by cluster group; deploy regionally near managed clusters.</td></tr>
+            <tr><th>20K RPS</th><td>Multi-region gateway with cluster-affinity routing; shared cache tier (Redis) instead of per-replica informers; async queue for all writes, not just long-running ones.</td></tr>
+        </table>
+    </section>
+
+    <section>
+        <h2>Tradeoffs</h2>
+        <ul>
+            <li><code>stdio</code> (simple, single user) vs <code>HTTP+SSE</code> (multi-user, needs full auth/session infra).</li>
+            <li>Per-replica cache (simple, duplicated) vs shared cache tier (efficient, adds a dependency).</li>
+            <li>Fail-closed on audit outage (safe, blocks emergency changes) vs fail-open (available, compliance risk).</li>
+            <li>Fine-grained per-tool RBAC (tight blast radius, more setup) vs coarse kubeconfig access (fast to onboard, riskier).</li>
+        </ul>
+    </section>
+
+    <section>
+        <h2>What I would change at 10x scale</h2>
+        <ul>
+            <li>Shared caching tier (Redis) instead of per-replica informers, to stop N replicas from opening N duplicate watches on the same API server.</li>
+            <li>Split into a stateless control tier (auth/routing/policy) and per-cluster execution workers, so one cluster's burst can't starve the others.</li>
+            <li>Replace hardcoded blocklists with a real policy engine (OPA/Kyverno-style), versioned like code.</li>
+            <li>Move audit logging to an async pipeline (Kafka → data lake), keeping fail-closed only for the highest-risk actions (delete, scale-to-zero, RBAC changes).</li>
+        </ul>
+    </section>
+
+    <section>
+        <h2>Tool catalog</h2>
+        <p>
+            ~60 tools across 15 categories — workloads, rollouts, autoscaling, networking,
+            config/secrets, storage, RBAC, observability/exec, Helm, GitOps manifests, CRDs,
+            multi-cluster, and async job/approval management. Full list with read/write/destructive
+            classification is in
+            <a href="https://github.com/ankkit24/CloudArchitecturePortfolio/blob/main/kubernetes-mcp-server/TOOLS.md" target="_blank" rel="noopener">TOOLS.md</a>.
+        </p>
+    </section>
+
+</div>
+
+<footer class="repo-footer">
+    <div class="container">
+        <span>Full write-up and source live in the repo.</span>
+        <a class="github-link" href="https://github.com/ankkit24/CloudArchitecturePortfolio" target="_blank" rel="noopener">
+            View on GitHub
+        </a>
+    </div>
+</footer>
+
+</body>
+</html>

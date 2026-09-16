@@ -1,132 +1,54 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <title>Ankit Photography Website</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!--       <link rel="stylesheet" href="main.css">&ndash;&gt;-->
-    <script src="https://kit.fontawesome.com/b6f3a37cd1.js" crossorigin="anonymous"></script>
-    <style>
-        * {
-            box-sizing: border-box;
-        }
-
-        /* Create three equal columns that floats next to each other */
-        .column {
-            float: left;
-            width: 33.33%;
-            padding: 10px;
-            height: 300px; /* Should be removed. Only for demonstration */
-        }
-
-        /* Clear floats after the columns */
-        .row:after {
-            content: "";
-            display: table;
-            clear: both;
-        }
-    </style>
+    <title>Ankit Nanavaty — Cloud Architecture Portfolio</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header>
-    <!--            header-->
-    <header class="header">
-        <div class="container nav-section">
-            <div class="brand-and-navBtn">
-                        <span class="brand-name">
-                            ANKIT CLICKS
-                        </span>
-                <span class="navBtn flex">
-                            <i class="fas fa-bars"></i>
-                        </span>
-            </div>
 
-            <!--                    navigation menu-->
-            <nav class="top-nav">
-                <ul>
-                    <li><a href="index.html" class="active">Home</a></li>
-                    <li><a href="gallery.html">Gallery</a></li>
-                    <li><a href="blog.html">Blog</a></li>
-                    <li><a href="contact.html">Contact</a></li>
-                </ul>
-            </nav>
-
-            <span class="search-icon">
-                        <i class="fas fa-search"></i>
-                    </span>
-        </div>
-        <!-- about and photo-->
-        <div class="container-about">
-            <div class="about-content">
-                <div class="about-img" flex>
-                    <img src="/Users/anknan/Desktop/sample_ankit.JPG" alt="My image" width="600" height="500">
-                    <h2> I am Ankit Nanavaty</h2>
-                    <h3> Photographer | Coder | Traveller </h3>
-                    <blockquote>
-                        "Photgraphy is a way to look at life through creative eyes - Ankkit"
-                    </blockquote>
-                </div>
-        <!--container for icons-->
-                <div>
-                    <ul>
-                        <li><a href="#"><i class="fab fa-facebook"></i></a></li>
-                        <li><a href="#"><i class="fab fa-twitter"></i></a></li>
-                        <li><a href="http://www.instagram.com/nano_clicks"><i class="fab fa-instagram"></i></a></li>
-                        <li><a href="#"><i class="fab fa-pinterest"></i></a></li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-    </header>
-
-    <section class="section-one">
-        <div class="container">
-            <div class="sec-one-left">
-                <div>
-                    <h3>Some description about different types of pictures</h3>
-                </div>
-            </div>
-
-            <div class="sec-one-right">
-                <div class="portrait-images">
-                    <h3>Portriats</h3>
-                    <p>These are some of the portraits</p>
-                    <div class="row">
-                        <div class="column">Image 1</div>
-                        <div class="column">Image 2</div>
-                        <div class="column">Image 3</div>
-                    </div>
-                    <a href="#" class="btn">view all</a>
-                </div>
-
-                <div class="landscape-images">
-                    <h3>Landscapes</h3>
-                    <p>These are some of the Landscapes</p>
-                    <div class="row">
-                        <div class="column">Image 1</div>
-                        <div class="column">Image 2</div>
-                        <div class="column">Image 3</div>
-                    </div>
-                    <a href="#" class="btn">view all</a>
-                </div>
-            </div>
-        </div>
-    </section>
+<header class="site-header">
+    <div class="container">
+        <a href="index.html" class="brand">ANKIT NANAVATY</a>
+        <nav class="site-nav">
+            <a href="https://github.com/ankkit24/CloudArchitecturePortfolio" target="_blank" rel="noopener">GitHub</a>
+        </nav>
+    </div>
 </header>
 
-<footer>
-    <div class="footer">
-        <div class="footer-container container">
-            <p>Subscribe below</p>
-            <div class="subscription">
-                <i class="fas fa-envelope"></i>
-                <input type="email" id="email" placeholder="Email address">
-                <button type="submit">SUBSCRIBE</button>
-            </div>
-        </div>
+<section class="hero">
+    <div class="container">
+        <h1>Cloud Architecture Portfolio</h1>
+        <p>
+            System design write-ups for real-world infrastructure problems — requirements,
+            architecture diagrams, key design decisions, failure scenarios, and how each
+            system would scale.
+        </p>
     </div>
-    <p>&copy; Copyright Ankit_Clicks</p>
+</section>
+
+<main class="container">
+    <div class="project-grid">
+
+        <a class="project-card" href="projects/kubernetes-mcp-server.html">
+            <h3>Kubernetes Operations MCP Server</h3>
+            <p>
+                Giving LLM agents safe, audited control over production Kubernetes clusters —
+                without handing them a cluster-admin kubeconfig.
+            </p>
+            <div class="tags">
+                <span class="tag">Kubernetes</span>
+                <span class="tag">MCP</span>
+                <span class="tag">RBAC &amp; Audit</span>
+            </div>
+        </a>
+
+    </div>
+</main>
+
+<footer class="site-footer">
+    &copy; Ankit Nanavaty
 </footer>
 
 </body>
